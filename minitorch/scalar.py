@@ -121,12 +121,30 @@ class Scalar:
         return self.history.inputs
 
     def chain_rule(self, d_output: Any) -> Iterable[Tuple[Variable, Any]]:
-        h = self.history
-        assert h is not None
-        assert h.last_fn is not None
-        assert h.ctx is not None
+        """Return the chain rule for this variable.
 
-        raise NotImplementedError("Need to include this file from past assignment.")
+        Args:
+        ----
+            d_output: The derivative of the output with respect to this variable.
+
+        Returns:
+        -------
+            An iterable of tuples containing the parent variable and the derivatives.
+
+        """
+        h = self.history
+        if h is None or h.last_fn is None or h.ctx is None:
+            return []
+
+        local_derivatives = h.last_fn._backward(h.ctx, d_output)
+        if not isinstance(local_derivatives, (tuple, list)):
+            local_derivatives = (local_derivatives,)
+
+        return [
+            (parent, derivative)
+            for parent, derivative in zip(h.inputs, local_derivatives)
+            if not parent.is_constant()
+        ]
 
     def backward(self, d_output: Optional[float] = None) -> None:
         """Calls autodiff to fill in the derivatives for the history of this object.
@@ -140,8 +158,6 @@ class Scalar:
         if d_output is None:
             d_output = 1.0
         backpropagate(self, d_output)
-
-    raise NotImplementedError("Need to include this file from past assignment.")
 
 
 def derivative_check(f: Any, *scalars: Scalar) -> None:
