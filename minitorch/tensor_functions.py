@@ -105,6 +105,18 @@ class All(Function):
             return a.f.mul_reduce(a.contiguous().view(int(operators.prod(a.shape))), 0)
 
 
+class Mul(Function):
+    @staticmethod
+    def forward(ctx: Context, t1: Tensor, t2: Tensor) -> Tensor:
+        """Matrix Multiply Forward"""
+        return t1.f.mul_zip(t1, t2)  # Custom multiplication logic here
+
+    @staticmethod
+    def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
+        """Matrix Multiply backward"""
+        return grad_output, grad_output  # Adjust as necessary
+
+
 # TODO: Implement for Task 2.3.
 
 

@@ -8,17 +8,9 @@ import numpy as np
 from dataclasses import field
 from .autodiff import Context, Variable, backpropagate, central_difference
 from .scalar_functions import (
-    EQ,
-    LT,
-    Add,
-    Exp,
     Inv,
-    Log,
     Mul,
-    Neg,
-    ReLU,
     ScalarFunction,
-    Sigmoid,
 )
 
 ScalarLike = Union[float, int, "Scalar"]
