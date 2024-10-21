@@ -1,13 +1,13 @@
 from __future__ import annotations
-
+import numpy as np
 from typing import TYPE_CHECKING, Callable, Optional, Type
 
 from typing_extensions import Protocol
 
 from . import operators
-from .tensor_data import (
-    shape_broadcast,
-)
+
+from .operators import prod
+from .tensor_data import shape_broadcast, index_to_position, to_index
 
 if TYPE_CHECKING:
     from .tensor import Tensor
@@ -83,6 +83,7 @@ class TensorBackend:
         # Reduce
         self.add_reduce = ops.reduce(operators.add, 0.0)
         self.mul_reduce = ops.reduce(operators.mul, 1.0)
+        self.sum_reduce = ops.reduce(operators.add, 0.0)
         self.matrix_multiply = ops.matrix_multiply
         self.cuda = ops.cuda
 
@@ -266,8 +267,21 @@ def tensor_map(
         in_shape: Shape,
         in_strides: Strides,
     ) -> None:
-        # TODO: Implement for Task 2.3.
-        raise NotImplementedError("Need to implement for Task 2.3")
+        out_size = int(prod(out_shape))
+        in_index = np.zeros(len(in_shape), dtype=np.int32)
+        out_index = np.zeros(len(out_shape), dtype=np.int32)
+
+        for i in range(out_size):
+            to_index(i, out_shape, out_index)
+            for j in range(len(in_index)):
+                if in_shape[j] == 1:
+                    in_index[j] = 0
+                else:
+                    in_index[j] = out_index[j]
+
+            out_pos = index_to_position(out_index, out_strides)
+            in_pos = index_to_position(in_index, in_strides)
+            out[out_pos] = fn(in_storage[in_pos])
 
     return _map
 
@@ -313,8 +327,28 @@ def tensor_zip(
         b_shape: Shape,
         b_strides: Strides,
     ) -> None:
-        # TODO: Implement for Task 2.3.
-        raise NotImplementedError("Need to implement for Task 2.3")
+        out_size = int(prod(out_shape))
+        a_index = np.zeros(len(a_shape), dtype=np.int32)
+        b_index = np.zeros(len(b_shape), dtype=np.int32)
+        out_index = np.zeros(len(out_shape), dtype=np.int32)
+
+        for i in range(out_size):
+            to_index(i, out_shape, out_index)
+            for j in range(len(a_index)):
+                if a_shape[j] == 1:
+                    a_index[j] = 0
+                else:
+                    a_index[j] = out_index[j]
+            for j in range(len(b_index)):
+                if b_shape[j] == 1:
+                    b_index[j] = 0
+                else:
+                    b_index[j] = out_index[j]
+
+            out_pos = index_to_position(out_index, out_strides)
+            a_pos = index_to_position(a_index, a_strides)
+            b_pos = index_to_position(b_index, b_strides)
+            out[out_pos] = fn(a_storage[a_pos], b_storage[b_pos])
 
     return _zip
 
@@ -346,10 +380,27 @@ def tensor_reduce(
         a_strides: Strides,
         reduce_dim: int,
     ) -> None:
-        # TODO: Implement for Task 2.3.
-        raise NotImplementedError("Need to implement for Task 2.3")
+        out_size = int(operators.prod(out_shape))
+        a_index = np.zeros(len(a_shape), dtype=np.int32)
+        out_index = np.zeros(len(out_shape), dtype=np.int32)
 
-    return _reduce
+        for i in range(out_size):
+            to_index(i, out_shape, out_index)
+            for j in range(len(a_index)):
+                if j != reduce_dim:
+                    a_index[j] = out_index[j]
+                else:
+                    a_index[j] = 0
+
+            out_pos = index_to_position(out_index, out_strides)
+            out[out_pos] = a_storage[index_to_position(a_index, a_strides)]
+
+            for j in range(1, a_shape[reduce_dim]):
+                a_index[reduce_dim] = j
+                a_pos = index_to_position(a_index, a_strides)
+                out[out_pos] = fn(out[out_pos], a_storage[a_pos])
+
+    return _reduce  # Ensure you return the correct function
 
 
 SimpleBackend = TensorBackend(SimpleOps)

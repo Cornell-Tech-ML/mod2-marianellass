@@ -11,6 +11,7 @@ from .scalar_functions import (
     Inv,
     Mul,
     ScalarFunction,
+    Add,
 )
 
 ScalarLike = Union[float, int, "Scalar"]
@@ -77,8 +78,8 @@ class Scalar:
     def __bool__(self) -> bool:
         return bool(self.data)
 
-    def __radd__(self, b: ScalarLike) -> Scalar:
-        return self + b
+    def __radd__(self, a: ScalarLike, b: ScalarLike) -> Scalar:
+        return Add.apply(a, b)
 
     def __rmul__(self, b: ScalarLike) -> Scalar:
         return self * b

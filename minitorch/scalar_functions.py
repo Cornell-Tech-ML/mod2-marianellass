@@ -215,3 +215,17 @@ class Eq(ScalarFunction):
     def backward(ctx: Context, d_output: float) -> Tuple[float, ...]:
         """Derivative of a constant is 0."""
         return 0.0, 0.0
+
+
+class is_close(ScalarFunction):
+    """Equality function f(x, y) = x == y"""
+
+    @staticmethod
+    def forward(ctx: Context, a: float, b: float, tol: float) -> float:
+        """Apply the equality function to two numbers returning either 0 or 1."""
+        return 1.0 if abs(a - b) < tol else 0.0
+
+    @staticmethod
+    def backward(ctx: Context, d_output: float) -> Tuple[float, ...]:
+        """Derivative of a constant is 0."""
+        return 0.0, 0.0, 0.0

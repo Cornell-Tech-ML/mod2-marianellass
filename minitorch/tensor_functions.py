@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import random
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 
@@ -38,23 +38,25 @@ class Function:
         return cls.forward(ctx, *inps)  # type: ignore
 
     @classmethod
-    def apply(cls, *vals: Tensor) -> Tensor:
+    def apply(cls, *vals: Any) -> Tensor:
         """Call the forward function and track history"""
+        from .tensor import Tensor  # Local import to avoid circular dependency
+
         raw_vals = []
         need_grad = False
         for v in vals:
-            if v.requires_grad():
-                need_grad = True
-            raw_vals.append(v.detach())
+            if isinstance(v, Tensor):
+                if v.requires_grad():
+                    need_grad = True
+                raw_vals.append(v.detach())
+            else:
+                raw_vals.append(v)
 
         # Create the context.
         ctx = Context(not need_grad)
 
         # Call forward with the variables.
         c = cls._forward(ctx, *raw_vals)
-        # assert isinstance(c, Tensor), "Expected return type Tensor got %s" % (
-        #     type(c)
-        # )
 
         # Create a new variable from the result with a new history.
         back = None
@@ -97,7 +99,7 @@ class Add(Function):
 
 class All(Function):
     @staticmethod
-    def forward(ctx: Context, a: Tensor, dim: Tensor) -> Tensor:
+    def forward(ctx: Context, a: Tensor, dim: Optional[Tensor] = None) -> Tensor:
         """Return 1 if all are true"""
         if dim is not None:
             return a.f.mul_reduce(a, int(dim.item()))
@@ -117,7 +119,111 @@ class Mul(Function):
         return grad_output, grad_output  # Adjust as necessary
 
 
-# TODO: Implement for Task 2.3.
+class Sum(Function):
+    @staticmethod
+    def forward(ctx: Context, a: Tensor, dim: Optional[int] = None) -> Tensor:
+        ctx.save_for_backward(a.shape, dim)
+        if dim is None:
+            # Flatten the tensor and sum over dimension 0
+            flattened = a.contiguous().view(-1)
+            result = a.f.sum_reduce(flattened, dim=0)
+            # result is a scalar tensor with shape ()
+            # To make it indexable with [0], reshape it to (1,)
+            result = result.view(1)
+        else:
+            result = a.f.sum_reduce(a, dim)
+        return result
+
+    def backward(self, ctx: Context, grad_output: Tensor) -> Tuple[Tensor]:
+        from .tensor import Tensor
+        from .tensor_data import (
+            TensorData,
+        )
+
+        a_shape, dim = ctx.saved_values
+        if dim is None:
+            # grad_output is a tensor of shape (1,)
+            grad_output_value = grad_output[0]
+            # Create a tensor of the same shape as 'a', filled with 'grad_output_value'
+            total_elements = int(operators.prod(a_shape))
+            grad_input_data = [grad_output_value] * total_elements
+            grad_input_data = TensorData(grad_input_data, a_shape)
+            grad_input = Tensor(grad_input_data)
+        else:
+            # Reshape grad_output to have singleton dimension at 'dim'
+            grad_output_shape = [1 if i == dim else s for i, s in enumerate(a_shape)]
+            grad_output = grad_output.view(*grad_output_shape)
+            # Use broadcasting to match the shape of 'a'
+            grad_input = grad_output + zeros(a_shape, backend=grad_output.backend)
+        return (grad_input,)
+
+
+class Sigmoid(Function):
+    @staticmethod
+    def forward(ctx: Context, a: Tensor) -> Tensor:
+        """Sigmoid of tensor"""
+        return a.f.sigmoid_map(a)
+
+
+class Relu(Function):
+    @staticmethod
+    def forward(ctx: Context, a: Tensor) -> Tensor:
+        """Relu of tensor"""
+        return a.f.relu_map(a)
+
+
+class Log(Function):
+    @staticmethod
+    def forward(ctx: Context, a: Tensor) -> Tensor:
+        """Log of tensor"""
+        return a.f.log_map(a)
+
+
+class Exp(Function):
+    @staticmethod
+    def forward(ctx: Context, a: Tensor) -> Tensor:
+        """Exp of tensor"""
+        return a.f.exp_map(a)
+
+
+class LT(Function):
+    @staticmethod
+    def forward(ctx: Context, a: Tensor, b: Tensor) -> Tensor:
+        """Less than"""
+        return a.f.lt_zip(a, b)
+
+
+class EQ(Function):
+    @staticmethod
+    def forward(ctx: Context, a: Tensor, b: Tensor) -> Tensor:
+        """Equal"""
+        return a.f.eq_zip(a, b)
+
+
+class IsClose(Function):
+    @staticmethod
+    def forward(ctx: Context, a: Tensor, b: Tensor, tol: float) -> Tensor:
+        ctx.save_for_backward(tol)
+        return a.f.is_close_zip(a, b)
+
+
+class permute(Function):
+    @staticmethod
+    def forward(ctx: Context, a: Tensor, dims: Tuple[int]) -> Tensor:
+        """Permute the dimensions of a tensor according to dims."""
+        ctx.save_for_backward(dims)
+        return a.permute(*dims)
+
+    @staticmethod
+    def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, None]:
+        (dims,) = ctx.saved_values
+        # Compute the inverse permutation
+        inv_dims = [0] * len(dims)
+        for i, dim in enumerate(dims):
+            inv_dims[dim] = i
+        # Permute the gradient back to the original dimensions
+        grad_input = grad_output.permute(*inv_dims)
+        return grad_input, None  # No gradient w.r.t. dims
 
 
 class View(Function):

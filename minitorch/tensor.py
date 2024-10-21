@@ -17,6 +17,8 @@ from .tensor_functions import (
     Inv,
     MatMul,
     Mul,
+    Sum,
+    All,
 )
 
 if TYPE_CHECKING:
@@ -245,6 +247,43 @@ class Tensor:
             for inp, d_in in zip(h.inputs, x)
         ]
 
+    def permute(self, *dims: int) -> Tensor:
+        if sorted(dims) != list(range(len(self.shape))):
+            raise ValueError("Invalid permutation of dimensions")
+        new_shape = [self.shape[dim] for dim in dims]
+        new_strides = [self._tensor.strides[dim] for dim in dims]
+        new_tensor_data = TensorData(self._tensor._storage, new_shape, new_strides)
+        return Tensor(new_tensor_data, backend=self.backend)
+
+    def zero_grad_(self) -> None:
+        """Sets gradients of all elements to zero."""
+        if self.grad is not None:
+            self.grad._tensor._storage[:] = 0.0
+
+    def view(self, *shape: int) -> Tensor:
+        new_shape = list(shape)
+        neg_one_count = new_shape.count(-1)
+        if neg_one_count > 1:
+            raise ValueError("Only one dimension can be inferred")
+        elif neg_one_count == 1:
+            neg_one_index = new_shape.index(-1)
+            known_size = 1
+            for s in new_shape:
+                if s != -1:
+                    known_size *= s
+            if self.size % known_size != 0:
+                raise ValueError("Cannot infer shape with given size")
+            inferred_dim = self.size // known_size
+            new_shape[neg_one_index] = inferred_dim
+        else:
+            total_size = 1
+            for s in new_shape:
+                total_size *= s
+            if total_size != self.size:
+                raise ValueError("Total size of new array must be unchanged")
+        new_tensor_data = TensorData(self._tensor._storage, tuple(new_shape))
+        return Tensor(new_tensor_data, backend=self.backend)
+
     def backward(self, grad_output: Optional[Tensor] = None) -> None:
         if grad_output is None:
             assert self.shape == (1,), "Must provide grad_output if non-scalar"
@@ -269,5 +308,74 @@ class Tensor:
         """
         return self._tensor.shape
 
+    @property
+    def size(self) -> int:
+        """Returns the total number of elements in the tensor."""
+        return self._tensor.size
+
+    @property
+    def dims(self) -> int:
+        """Returns the number of dimensions of the tensor."""
+        return len(self.shape)
+
     # Functions
-    # TODO: Implement for Task 2.3.
+    def __add__(self, other: TensorLike) -> Tensor:
+        return self.f.add_zip(self, self._ensure_tensor(other))
+
+    def __sub__(self, other: TensorLike) -> Tensor:
+        neg_other = self.f.neg_map(self._ensure_tensor(other))
+        return self.f.add_zip(self, neg_other)
+
+    def __mul__(self, other: TensorLike) -> Tensor:
+        return self.f.mul_zip(self, self._ensure_tensor(other))
+
+    def __lt__(self, other: TensorLike) -> Tensor:
+        return self.f.lt_zip(self, self._ensure_tensor(other))
+
+    def __gt__(self, other: TensorLike) -> Tensor:
+        return self.f.lt_zip(self._ensure_tensor(other), self)
+
+    def __eq__(self, other: TensorLike) -> Tensor:
+        return self.f.eq_zip(self, self._ensure_tensor(other))
+
+    def __neg__(self) -> Tensor:
+        return self.f.neg_map(self)
+
+    def __radd__(self, other: TensorLike) -> Tensor:
+        return self + other
+
+    def __rmul__(self, other: TensorLike) -> Tensor:
+        return self * other
+
+    def is_close(self, other: TensorLike) -> Tensor:
+        return self.f.is_close_zip(self, self._ensure_tensor(other))
+
+    def sigmoid(self) -> Tensor:
+        return self.f.sigmoid_map(self)
+
+    def relu(self) -> Tensor:
+        return self.f.relu_map(self)
+
+    def log(self) -> Tensor:
+        return self.f.log_map(self)
+
+    def exp(self) -> Tensor:
+        return self.f.exp_map(self)
+
+    def all(self, dim: Optional[int] = None) -> Tensor:
+        if dim is None:
+            return All.apply(self)
+        else:
+            dim_tensor = Tensor.make([dim], (1,), backend=self.backend)
+            return All.apply(self, dim_tensor)
+
+    def sum(self, dim: Optional[int] = None) -> Tensor:
+        return Sum.apply(self, dim)
+
+    def mean(self, dim: Optional[int] = None) -> Tensor:
+        summed = self.sum(dim)
+        if dim is None:
+            size = self.size
+        else:
+            size = self.shape[dim]
+        return summed / size
