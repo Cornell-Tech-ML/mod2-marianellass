@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Iterable, Tuple, Protocol
+from typing import Any, Iterable, Tuple, Protocol, runtime_checkable
 
 
 # ## Task 1.1
@@ -25,12 +25,26 @@ def central_difference(f: Any, *vals: Any, arg: int = 0, epsilon: float = 1e-6) 
         An approximation of $f'_i(x_0, \ldots, x_{n-1})$
 
     """
-    raise NotImplementedError("Need to include this file from past assignment.")
+    vals_plus = list(vals)
+    vals_minus = list(vals)
+
+    # Calculate f(x_0, ..., x_i + epsilon, ..., x_{n-1})
+    vals_plus[arg] = vals_plus[arg] + epsilon
+    f_plus = f(*vals_plus)
+
+    # Calculate f(x_0, ..., x_i - epsilon, ..., x_{n-1})
+    vals_minus[arg] = vals_minus[arg] - epsilon
+    f_minus = f(*vals_minus)
+
+    derivative = (f_plus - f_minus) / (2 * epsilon)
+    return derivative
+
 
 
 variable_count = 1
 
 
+@runtime_checkable
 class Variable(Protocol):
     def accumulate_derivative(self, x: Any) -> None: ...
 
@@ -48,7 +62,7 @@ class Variable(Protocol):
 
 
 def topological_sort(variable: Variable) -> Iterable[Variable]:
-    """Computes the topological order of the computation graph.
+    """Compute the topological order of the computation graph.
 
     Args:
     ----
@@ -59,23 +73,52 @@ def topological_sort(variable: Variable) -> Iterable[Variable]:
         Non-constant Variables in topological order starting from the right.
 
     """
-    raise NotImplementedError("Need to include this file from past assignment.")
+    visited = set()
+    topo_order = []
+
+    def dag(var: Variable) -> None:
+        """DAG helper function."""
+        if var.unique_id not in visited and not var.is_constant():
+            visited.add(var.unique_id)
+
+            for parent in var.parents:
+                dag(parent)
+
+            topo_order.append(var)
+
+    dag(variable)
+    return reversed(topo_order)
+
+
 
 
 def backpropagate(variable: Variable, deriv: Any) -> None:
-    """Runs backpropagation on the computation graph in order to
-    compute derivatives for the leave nodes.
+    """Run backpropagation on the computation graph to compute derivatives for the leaf nodes.
 
     Args:
     ----
         variable: The right-most variable
-        deriv  : Its derivative that we want to propagate backward to the leaves.
+        deriv: Its derivative that we want to propagate backward to the leaves.
 
-    No return. Should write to its results to the derivative values of each leaf through `accumulate_derivative`.
+    Returns:
+    -------
+        No return. Should write to its results to the derivative values of each leaf through `accumulate_derivative`.
 
     """
-    raise NotImplementedError("Need to include this file from past assignment.")
+    derivDict = {variable.unique_id: deriv}
 
+    topo_order = topological_sort(variable)
+    for var in topo_order:
+        if var.is_leaf():
+            var.accumulate_derivative(derivDict[var.unique_id])
+
+        for parent, d_parent in var.chain_rule(derivDict[var.unique_id]):
+            if d_parent is None or not isinstance(parent, Variable):
+                continue
+            if parent.unique_id in derivDict:
+                derivDict[parent.unique_id] += d_parent
+            else:
+                derivDict[parent.unique_id] = d_parent
 
 @dataclass
 class Context:

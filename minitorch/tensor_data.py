@@ -91,6 +91,9 @@ def broadcast_index(
         None
 
     """
+    from .tensor_data import shape_broadcast
+    from .tensor import Tensor
+
     for i in range(len(shape)):
         if shape[i] == 1:
             out_index[i] = 0
