@@ -321,10 +321,10 @@ class Tensor:
         return len(self._tensor.shape)
 
     # Functions
-    
+
     def __gt__(self, b: TensorLike) -> Tensor:
         return GT.apply(self, self._ensure_tensor(b))
-    
+
     def __add__(self, b: TensorLike) -> Tensor:
         return Add.apply(self, self._ensure_tensor(b))
 
@@ -395,12 +395,13 @@ class Tensor:
             total_elements = operators.prod(self.shape)
             sum_tensor = self.sum()
             result = sum_tensor / Tensor.make(
-                [total_elements], (1,), backend=self.backend)
+                [total_elements], (1,), backend=self.backend
+            )
         else:
             sum_tensor = self.sum(dim)
             dim_size = self.shape[dim]
             result = sum_tensor / Tensor.make([dim_size], (1,), backend=self.backend)
-        return result 
+        return result
 
     def permute(self, *order: int) -> Tensor:
         """Rearranges the dimensions of the tensor according to the specified order."""

@@ -62,6 +62,7 @@ class Function:
             back = minitorch.History(cls, ctx, vals)
         return minitorch.Tensor(c._tensor, back, backend=c.backend)
 
+
 class Neg(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor) -> Tensor:
@@ -84,7 +85,7 @@ class Inv(Function):
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
         """Return the negative of the gradient"""
-        (t1,) = ctx.saved_values # Retrieve t1
+        (t1,) = ctx.saved_values  # Retrieve t1
         grad_input = grad_output.f.inv_back_zip(t1, grad_output)
         return grad_input
 
@@ -124,17 +125,21 @@ class Mul(Function):
         """Compute the backward pass for the Mul function."""
         t1, t2 = ctx.saved_tensors
         return grad_output * t2, grad_output * t1
-    
+
+
 class Sum(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor, dim: Tensor) -> Tensor:
         """Forward pass for the Sum function."""
-        return t1.f.add_reduce(t1, int(dim.item()))  
-    
+        return t1.f.add_reduce(t1, int(dim.item()))
+
     @staticmethod
-    def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, float]:  
+    def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, float]:
         """Backward pass for the Sum function."""
-        return (grad_output, 0.0,)  
+        return (
+            grad_output,
+            0.0,
+        )
 
 
 class Sigmoid(Function):
@@ -149,10 +154,15 @@ class Sigmoid(Function):
         """Compute the backward pass for the Sigmoid function."""
         (t1,) = ctx.saved_tensors
         sig = t1.f.sigmoid_map(t1)
-        one_minus_sigmoid = t1.f.add_zip(t1.f.id_map(sig) / sig, t1.f.neg_map(sig))  #1-sigmoid(x)
-        sigmoid_derivative = t1.f.mul_zip(sig, one_minus_sigmoid)  #sigmoid(x) * (1-sigmoid(x))
-        return t1.f.mul_zip(sigmoid_derivative, grad_output)  
-        
+        one_minus_sigmoid = t1.f.add_zip(
+            t1.f.id_map(sig) / sig, t1.f.neg_map(sig)
+        )  # 1-sigmoid(x)
+        sigmoid_derivative = t1.f.mul_zip(
+            sig, one_minus_sigmoid
+        )  # sigmoid(x) * (1-sigmoid(x))
+        return t1.f.mul_zip(sigmoid_derivative, grad_output)
+
+
 class ReLU(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor) -> Tensor:
@@ -194,13 +204,14 @@ class Exp(Function):
         (t1,) = ctx.saved_values
         return grad_output.f.mul_zip(t1.f.exp_map(t1), grad_output)
 
+
 class GT(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor, t2: Tensor) -> Tensor:
         """Forward pass for Greater Than."""
         ctx.save_for_backward(t1, t2)
         return t1.f.lt_zip(t2, t1)
-    
+
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
         """Backward pass for greater than."""
@@ -209,6 +220,7 @@ class GT(Function):
         zero2 = grad_output.f.id_map(tensor(0), t2)
 
         return zero1, zero2
+
 
 class LT(Function):
     @staticmethod
@@ -225,7 +237,8 @@ class LT(Function):
         zero_grad_t2 = grad_output.f.id_map(tensor(0), t2)
 
         return zero_grad_t1, zero_grad_t2
-    
+
+
 class EQ(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor, t2: Tensor) -> Tensor:
@@ -271,7 +284,6 @@ class Permute(Function):
         return grad_output._new(grad_output._tensor.permute(*inverse_order)), 0.0
 
 
-
 class View(Function):
     @staticmethod
     def forward(ctx: Context, a: Tensor, shape: Tensor) -> Tensor:
@@ -294,6 +306,7 @@ class View(Function):
             ),
             0.0,
         )
+
 
 class Copy(Function):
     @staticmethod

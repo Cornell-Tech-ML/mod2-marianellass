@@ -40,25 +40,36 @@ def central_difference(f: Any, *vals: Any, arg: int = 0, epsilon: float = 1e-6) 
     return derivative
 
 
-
 variable_count = 1
 
 
 @runtime_checkable
 class Variable(Protocol):
-    def accumulate_derivative(self, x: Any) -> None: ...
+    def accumulate_derivative(self, x: Any) -> None:
+        """Accumulate the derivative of the variable."""
+        ...
 
     @property
-    def unique_id(self) -> int: ...
+    def unique_id(self) -> int:
+        """Unique identifier for the variable."""
+        ...
 
-    def is_leaf(self) -> bool: ...
+    def is_leaf(self) -> bool:
+        """Is the variable a leaf node?"""
+        ...
 
-    def is_constant(self) -> bool: ...
+    def is_constant(self) -> bool:
+        """Is the variable a constant?"""
+        ...
 
     @property
-    def parents(self) -> Iterable["Variable"]: ...
+    def parents(self) -> Iterable["Variable"]:
+        """Parents of the variable in the computation graph."""
+        ...
 
-    def chain_rule(self, d_output: Any) -> Iterable[Tuple[Variable, Any]]: ...
+    def chain_rule(self, d_output: Any) -> Iterable[Tuple[Variable, Any]]:
+        """Chain rule for backpropagation."""
+        ...
 
 
 def topological_sort(variable: Variable) -> Iterable[Variable]:
@@ -77,6 +88,7 @@ def topological_sort(variable: Variable) -> Iterable[Variable]:
     seen = set()
 
     def visit(var: Variable) -> None:
+        """Visit the variable and its parents."""
         if var.unique_id in seen or var.is_constant():
             return
         if not var.is_leaf():
@@ -88,9 +100,6 @@ def topological_sort(variable: Variable) -> Iterable[Variable]:
 
     visit(variable)
     return order
-
-
-
 
 
 def backpropagate(variable: Variable, deriv: Any) -> None:
@@ -120,6 +129,7 @@ def backpropagate(variable: Variable, deriv: Any) -> None:
                 derivatives.setdefault(v.unique_id, 0.0)
                 derivatives[v.unique_id] = derivatives[v.unique_id] + d
 
+
 @dataclass
 class Context:
     """Context class is used by `Function` to store information during the forward pass."""
@@ -135,4 +145,5 @@ class Context:
 
     @property
     def saved_tensors(self) -> Tuple[Any, ...]:
+        """Saved tensor."""
         return self.saved_values

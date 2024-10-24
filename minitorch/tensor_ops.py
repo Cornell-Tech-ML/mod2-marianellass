@@ -201,6 +201,7 @@ class SimpleOps(TensorOps):
 
         Args:
         ----
+            start: initial value for reduction
             fn: function from two floats-to-float to apply
             a (:class:`TensorData`): tensor to reduce over
             dim (int): int of dim to reduce
@@ -392,6 +393,7 @@ def tensor_reduce(
                 a_pos = index_to_position(a_index, a_strides)
                 out[out_pos] = fn(out[out_pos], a_storage[a_pos])
 
-    return _reduce  
+    return _reduce
+
 
 SimpleBackend = TensorBackend(SimpleOps)

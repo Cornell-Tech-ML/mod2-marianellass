@@ -91,9 +91,6 @@ def broadcast_index(
         None
 
     """
-    from .tensor_data import shape_broadcast
-    from .tensor import Tensor
-
     for i in range(len(shape)):
         if shape[i] == 1:
             out_index[i] = 0
@@ -177,7 +174,7 @@ class TensorData:
         self.dims = len(strides)
         self.size = int(prod(shape))
         self.shape = shape
-        #assert len(self._storage) == self.size
+        # assert len(self._storage) == self.size
 
     def to_cuda_(self) -> None:  # pragma: no cover
         """Convert to cuda"""
@@ -201,9 +198,11 @@ class TensorData:
 
     @staticmethod
     def shape_broadcast(shape_a: UserShape, shape_b: UserShape) -> UserShape:
+        """Make a broadcast shape from two shapes."""
         return shape_broadcast(shape_a, shape_b)
 
     def index(self, index: Union[int, UserIndex]) -> int:
+        """Make index."""
         if isinstance(index, int):
             aindex: Index = array([index])
         else:  # if isinstance(index, tuple):
@@ -227,6 +226,7 @@ class TensorData:
         return index_to_position(array(index), self._strides)
 
     def indices(self) -> Iterable[UserIndex]:
+        """Make an iterator over all indices."""
         lshape: Shape = array(self.shape)
         out_index: Index = array(self.shape)
         for i in range(self.size):
@@ -238,10 +238,12 @@ class TensorData:
         return tuple((random.randint(0, s - 1) for s in self.shape))
 
     def get(self, key: UserIndex) -> float:
+        """Make get."""
         x: float = self._storage[self.index(key)]
         return x
 
     def set(self, key: UserIndex, val: float) -> None:
+        """Make set."""
         self._storage[self.index(key)] = val
 
     def tuple(self) -> Tuple[Storage, Shape, Strides]:
